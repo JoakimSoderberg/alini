@@ -60,25 +60,46 @@ static char *stripws(char *str, size_t len)
 /* create parser */
 int alini_parser_create(alini_parser_t **parser, const char *path)
 {
+	int ret = 0;
 	assert(parser);
 	assert(path);
-	
+
+	if (!path)
+		return -1;
+
 	/* allocate new parser */
 	*parser = (alini_parser_t *)calloc(1, sizeof(alini_parser_t));
-	if(!(*parser)) return -1;
-	
+	if(!(*parser))
+	{
+		return -1;
+	}
+
 	/* init */
 	(*parser)->activesection = NULL;
 	(*parser)->on = 1;
-	
+
 	/* copy path */
-	if (!((*parser)->path = strdup(path))) return -1;
-	
+	if (!((*parser)->path = strdup(path)))
+	{
+		ret = -1;
+		goto fail;
+	}
+
 	/* open file */
 	(*parser)->file = fopen(path, "r");
-	if(!(*parser)->file) return -1;
 	
-	return 0;
+	if(!(*parser)->file)
+	{
+		ret = 1; // Missing file is non-negative.
+		goto fail;
+	}
+
+	return ret;
+fail:
+	alini_parser_dispose(*parser);
+	*parser = NULL;
+
+	return ret;
 }
 
 /* set `found key-value pair` callback */
@@ -107,13 +128,14 @@ void *alini_parser_get_context(alini_parser_t *parser)
 /* parse one step */
 int alini_parser_step(alini_parser_t *parser)
 {
-	char		line[1025];
-	char		*tmpline;
-	unsigned	len;
+	int 		ret 				= 0;
+	char		line[4096];
+	char		*tmpline			= NULL;
+	unsigned	len 				= 0;
 	unsigned	linenumber			= 0;
 	char		signisfound			= 0;
 	char		sectionhdrisfound	= 0;
-	char		iswspace;
+	char		iswspace			= 0;
 	unsigned	i;
 	unsigned	j;
 	char		*key				= NULL;
@@ -124,8 +146,10 @@ int alini_parser_step(alini_parser_t *parser)
 	while(1)
 	{
 		/* get a line */
-		if(!fgets(line, 1024, parser->file))
-			return -1;
+		if(!fgets(line, sizeof(line) - 1, parser->file))
+		{
+			ret = 1; goto fail; // EOF reached.
+		}
 		linenumber++;
 		
 		/* skip comments and empty lines */
@@ -144,7 +168,11 @@ int alini_parser_step(alini_parser_t *parser)
 		
 		/* search '[...]' */
 		sectionhdrisfound = 0;
-		tmpline = stripws(line, strlen(line));
+		if (!(tmpline = stripws(line, strlen(line))))
+		{
+			ret = -1; goto fail;
+		}
+
 		len = strlen(tmpline);
 		if(len > 2)
 		{
@@ -154,16 +182,21 @@ int alini_parser_step(alini_parser_t *parser)
 				{
 					sectionhdrisfound = 1;
 					if(parser->activesection) free(parser->activesection);
-					parser->activesection = stripws(tmpline + 1, strlen(tmpline) - 2);
+					
+					if (!(parser->activesection = stripws(tmpline + 1, strlen(tmpline) - 2)))
+					{
+						ret = -1; goto fail;
+					}
 				}
 				else
 				{
 					fprintf(stderr, "alini: parse error at %s:%d: end token `]' not found", parser->path, linenumber);
-					return -1;
+					ret = -1; goto fail;
 				}
 			}
 		}
 		free(tmpline);
+		tmpline = NULL;
 		
 		if(!sectionhdrisfound)
 		{
@@ -178,34 +211,55 @@ int alini_parser_step(alini_parser_t *parser)
 			if(!signisfound)
 			{
 				fprintf(stderr, "alini: parse error at %s:%d: token `=' not found", parser->path, linenumber);
-				return -1;
+				ret = -1; goto fail;
 			}
 			
 			/* trim key and value */
-			key = stripws(line, i - 1);
-			value = stripws(line + i, strlen(line) - i - 1);
+			if (!(key = stripws(line, i - 1)))
+			{
+				ret = -1; goto fail;
+			}
+			
+			if (!(value = stripws(line + i, strlen(line) - i - 1)))
+			{
+				ret = -1; goto fail;
+			}
 			
 			/* call callback */
 			parser->foundkvpair_callback(parser, parser->activesection, key, value);
 			
 			/* cleanup */
 			free(key);
+			key = NULL;
 			free(value);
+			value = NULL;
 			
 			break;
 		}
 	}
 	
-	return 0;
+	return ret;
+fail:
+	if (tmpline) free(tmpline);
+	if (key) free(key);
+	if (value) free(value);
+
+	return ret;
 }
 
 /* parse entire file */
 int alini_parser_start(alini_parser_t *parser)
 {
+	int ret = 0;
 	assert(parser);
 	
-	while(parser->on && alini_parser_step(parser) == 0)
-		;
+	while (parser->on && (ret == 0))
+	{
+		ret = alini_parser_step(parser);
+
+		if (ret < 0)
+			return -1;
+	}
 	
 	return 0;
 }
@@ -221,7 +275,8 @@ void alini_parser_halt(alini_parser_t *parser)
 /* dispose parser */
 int alini_parser_dispose(alini_parser_t *parser)
 {
-	assert(parser);
+	if (!parser)
+		return 0;
 	
 	/* close file */
 	if (parser->file)
