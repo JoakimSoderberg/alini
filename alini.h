@@ -40,6 +40,7 @@ struct alini_parser_s {
 	char *path;
 	char *activesection;
 	FILE *file;
+	unsigned int linenumber;
 	alini_parser_foundkvpair_callback foundkvpair_callback;
 	void *ctx;
 };
@@ -67,5 +68,8 @@ void alini_parser_halt(alini_parser_t *parser);
 
 /* dispose parser */
 int alini_parser_dispose(alini_parser_t *parser);
+
+/* gets current line number when in key-value-pair callback */
+int alini_parser_get_linenumber(alini_parser_t *parser);
 
 #endif

@@ -132,7 +132,6 @@ int alini_parser_step(alini_parser_t *parser)
 	char		line[4096];
 	char		*tmpline			= NULL;
 	unsigned	len 				= 0;
-	unsigned	linenumber			= 0;
 	char		signisfound			= 0;
 	char		sectionhdrisfound	= 0;
 	char		iswspace			= 0;
@@ -142,6 +141,8 @@ int alini_parser_step(alini_parser_t *parser)
 	char		*value				= NULL;
 	
 	assert(parser);
+
+	parser->linenumber = 1;
 	
 	while(1)
 	{
@@ -150,7 +151,8 @@ int alini_parser_step(alini_parser_t *parser)
 		{
 			ret = 1; goto fail; // EOF reached.
 		}
-		linenumber++;
+
+		parser->linenumber++;
 		
 		/* skip comments and empty lines */
 		if(line[0] == '#' || line[0] == ';' || line[0] == '\n' || line[0] == '\r')
@@ -190,7 +192,9 @@ int alini_parser_step(alini_parser_t *parser)
 				}
 				else
 				{
-					fprintf(stderr, "alini: parse error at %s:%d: end token `]' not found", parser->path, linenumber);
+					fprintf(stderr,
+						"alini: parse error at %s:%d: end token `]' not found",
+						parser->path, parser->linenumber);
 					ret = -1; goto fail;
 				}
 			}
@@ -210,7 +214,9 @@ int alini_parser_step(alini_parser_t *parser)
 			}
 			if(!signisfound)
 			{
-				fprintf(stderr, "alini: parse error at %s:%d: token `=' not found", parser->path, linenumber);
+				fprintf(stderr,
+					"alini: parse error at %s:%d: token `=' not found",
+					parser->path, parser->linenumber);
 				ret = -1; goto fail;
 			}
 			
@@ -289,4 +295,10 @@ int alini_parser_dispose(alini_parser_t *parser)
 	free(parser);
 	
 	return 0;
+}
+
+int alini_parser_get_linenumber(alini_parser_t *parser)
+{
+	assert(parser);
+	return parser->linenumber;
 }
