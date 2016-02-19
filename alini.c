@@ -33,26 +33,20 @@
 /* strips whitespace at beginning and end of string */
 static char *stripws(char *str, size_t len)
 {
-	int i = 0;
-	int j = 0;
-	int newlen = 0;
-	char *newstr = NULL;
+	int j;
+	char *newstr;
+	int skip = 0;
 
-	/* find whitespace at start of string */
-	for(;isspace(str[i]);i++) ;
+	skip += strspn(str, " \t\n\v\f\r");
 
-	/* find whitespace at end of string */
-	for(j = len - 1; j > 0 && isspace(str[j]); j--) ;
+	if (!(newstr = strdup(str + skip)))
+	{
+		return NULL;
+	}
+
+	for(j = len - skip - 1; j > 0 && isspace(newstr[j]); j--) ;
 	++j;
-
-	/* make new string */
-	newlen = j-i;
-	if (newlen < 0) newlen = 0;
-	newstr = (char *)calloc(newlen+1, sizeof(char));
-	if(!newstr) return NULL;
-
-	memcpy(newstr, str+i, newlen);
-	newstr[j-i] = '\0';
+	newstr[j] = 0;
 
 	return newstr;
 }
