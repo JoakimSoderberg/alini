@@ -31,25 +31,31 @@
 #include "alini.h"
 
 /* strips whitespace at beginning and end of string */
-static char *stripws(char *str, size_t len)
+static char *stripws(char *org_str, size_t len)
 {
-	int j;
-	char *newstr;
-	int skip = 0;
-	assert(len >= 0);
+	int i;
+	int begin = 0;
+	int end = len - 1;
+	char *str = NULL;
 
-	skip += strspn(str, " \t\n\v\f\r");
-
-	if (!(newstr = strdup(str + skip)))
+	if (!(str = strdup(org_str)))
 	{
 		return NULL;
 	}
 
-	for(j = len - skip - 1; j > 0 && isspace(newstr[j]); j--) ;
-	++j;
-	newstr[j] = 0;
+	while (isspace(str[begin]))
+		begin++;
 
-	return newstr;
+	while ((end >= begin) && isspace(str[end]))
+		end--;
+
+	// Shift all characters back to the start of the string array.
+	for (i = begin; i <= end; i++)
+		str[i - begin] = str[i];
+
+	str[i - begin] = '\0'; // Null terminate string.
+
+	return str;
 }
 
 /* create parser */
