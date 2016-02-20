@@ -36,6 +36,7 @@ static char *stripws(char *str, size_t len)
 	int j;
 	char *newstr;
 	int skip = 0;
+	assert(len >= 0);
 
 	skip += strspn(str, " \t\n\v\f\r");
 
@@ -198,33 +199,31 @@ int alini_parser_step(alini_parser_t *parser)
 		
 		if(!sectionhdrisfound)
 		{
-			/* search '=' */
-			signisfound = 0;
-			for(i = 0; i < len && !signisfound; i++)
-			{
-				if(line[i] != '=') continue;
-				
-				signisfound = 1;
-			}
-			if(!signisfound)
+			char *signpos = NULL;
+
+			if ((signpos = strchr(line, '=')) == NULL)
 			{
 				fprintf(stderr,
 					"alini: parse error at %s:%d: token `=' not found",
 					parser->path, parser->linenumber);
 				ret = -1; goto fail;
 			}
+
+			i = signpos - line;
 			
 			/* trim key and value */
-			if (!(key = stripws(line, i - 1)))
+			if (!(key = stripws(line, i)))
 			{
 				ret = -1; goto fail;
 			}
+
+			i++;
 			
-			if (!(value = stripws(line + i, strlen(line) - i - 1)))
+			if (!(value = stripws(line + i, strlen(line) - i)))
 			{
 				ret = -1; goto fail;
 			}
-			
+
 			/* call callback */
 			parser->foundkvpair_callback(parser, parser->activesection, key, value);
 			
